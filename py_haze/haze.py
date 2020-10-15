@@ -1,0 +1,2 @@
+def dehaze(image):
+  pass
