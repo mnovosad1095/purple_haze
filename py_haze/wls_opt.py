@@ -9,7 +9,8 @@ def wls_optimization(inp, data_weight, guidance, l):
   h,w,_ = guidance.shape
   k = h*w
 
-  guidance =  cv2.cvtColor(guidance, cv2.COLOR_BGR2GRAY)
+  guidance = cv2.cvtColor(guidance, cv2.COLOR_BGR2GRAY)
+  guidance = cv2.normalize(guidance.astype('float'),None, 0, 1, norm_type=cv2.NORM_MINMAX )
 
   dy = np.diff(guidance, 1, 0)
   dy = -l/(np.abs(dy)**2 + err)
