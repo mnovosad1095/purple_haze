@@ -21,11 +21,6 @@ private:
     png_byte color_type;
     png_byte bit_depth;
 
-    png_structp png_ptr;
-    png_infop info_ptr;
-    int number_of_passes;
-
-
     static void abort_(const char * s, ...)
     {
       std::cerr<< s << std::endl;
@@ -69,11 +64,7 @@ public:
       read_png_file(filename.c_str());
     }
 
-    ~Image()
-    {
-      png_destroy_read_struct(&png_ptr, &info_ptr, nullptr);
-      imgMat.~ImageMatrix();
-    }
+    ~Image() {}
 
     ImageMatrix& getMatrix()
     {
@@ -101,7 +92,6 @@ public:
     void create_matrix(png_bytep * row_pointers)
     {
       for (int i =0; i<3;++i) imgMat[i].resize(width, height);
-      std::cout << "resized matrix" << std::endl;
       for (int y=0; y<height; ++y) {
         png_byte* row = row_pointers[y];
         for (int x=0; x<width; ++x) {
@@ -113,7 +103,6 @@ public:
 
     void matrixToRowPointers(png_bytep * row_pointers)
     {
-      std::cout << "Matrix to rows" << std::endl;
       for (int y=0; y<height; y++) {
         png_byte* row = row_pointers[y];
         for (int x=0; x<width; x++) {
@@ -142,12 +131,12 @@ public:
         abort_("[read_png_file] File %s could not be opened for reading", file_name);
       fread(header, 1, 8, fp);
       /* initialize stuff */
-      png_ptr = png_create_read_struct(PNG_LIBPNG_VER_STRING, nullptr, nullptr, nullptr);
+      auto png_ptr = png_create_read_struct(PNG_LIBPNG_VER_STRING, nullptr, nullptr, nullptr);
 
       if (!png_ptr)
         abort_("[read_png_file] png_create_read_struct failed");
 
-      info_ptr = png_create_info_struct(png_ptr);
+      auto info_ptr = png_create_info_struct(png_ptr);
       if (!info_ptr)
         abort_("[read_png_file] png_create_info_struct failed");
 
@@ -164,7 +153,7 @@ public:
       color_type = png_get_color_type(png_ptr, info_ptr);
       bit_depth = png_get_bit_depth(png_ptr, info_ptr);
 
-      number_of_passes = png_set_interlace_handling(png_ptr);
+      int number_of_passes = png_set_interlace_handling(png_ptr);
       png_read_update_info(png_ptr, info_ptr);
 
 
@@ -193,12 +182,12 @@ public:
         abort_("[write_png_file] File %s could not be opened for writing", file_name);
 
       /* initialize stuff */
-      png_ptr = png_create_write_struct(PNG_LIBPNG_VER_STRING, nullptr, nullptr, nullptr);
+      auto png_ptr = png_create_write_struct(PNG_LIBPNG_VER_STRING, nullptr, nullptr, nullptr);
 
       if (!png_ptr)
         abort_("[write_png_file] png_create_write_struct failed");
 
-      info_ptr = png_create_info_struct(png_ptr);
+      auto info_ptr = png_create_info_struct(png_ptr);
       if (!info_ptr)
         abort_("[write_png_file] png_create_info_struct failed");
 
@@ -222,7 +211,7 @@ public:
       if (setjmp(png_jmpbuf(png_ptr)))
         abort_("[write_png_file] Error during writing bytes");
 
-      png_bytep * row_pointers = (png_bytep*) malloc(sizeof(png_bytep) * height);
+      auto * row_pointers = (png_bytep*) malloc(sizeof(png_bytep) * height);
       for (int y=0; y<height; ++y)
         row_pointers[y] = (png_byte*) malloc(png_get_rowbytes(png_ptr,info_ptr));
       matrixToRowPointers(row_pointers);

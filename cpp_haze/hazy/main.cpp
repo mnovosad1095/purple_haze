@@ -11,6 +11,7 @@
 #include <fstream>
 #include <map>
 #include <list>
+#include <cmath>
 #include <algorithm>
 #include "KDTree.h"
 #include "Optimizer.h"
@@ -139,7 +140,7 @@ int main(int argc, char **argv)
 
   // TODO: implement wls optimization
   double lambda = 0.2;
-  auto transmission = Optimizer::wlsOptimization(tlb, radius_std, original_image, lambda);
+//  auto transmission = Optimizer::wlsOptimization(tlb, radius_std, original_image, lambda);
 
   img.write_png_file((char*)"output.png");
 
