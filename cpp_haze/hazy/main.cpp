@@ -2,9 +2,6 @@
 // Created by spike on 19.10.20.
 //
 
-#include <iostream>
-#define PNG_DEBUG 3
-#include <png.h>
 #include "Image.h"
 #include "ImageConverter.h"
 #include <eigen3/Eigen/Dense>
@@ -15,7 +12,20 @@
 #include <algorithm>
 #include "KDTree.h"
 #include "Optimizer.h"
+#include <chrono>
+#include <atomic>
 
+inline std::chrono::high_resolution_clock::time_point get_current_time_fenced() {
+  std::atomic_thread_fence(std::memory_order_seq_cst);
+  auto res_time = std::chrono::high_resolution_clock::now();
+  std::atomic_thread_fence(std::memory_order_seq_cst);
+  return res_time;
+}
+
+template<class D>
+inline long long to_s(const D &d) {
+  return std::chrono::duration_cast<std::chrono::seconds>(d).count();
+}
 
 struct cmpPoints {
     bool operator()(const point<double,3>& a, const point<double,3>& b) const {
@@ -88,6 +98,8 @@ std::map<point<double,3>, double, cmpPoints> getLinesStDev(hazeLineMap& hazeline
   }
   return hazeline_std;
 }
+
+
 Eigen::MatrixXd mapToMatrix(std::vector<point<double,3>>& points,
                             std::map<point<double,3>, double, cmpPoints> map, int rows, int cols)
 {
@@ -107,10 +119,10 @@ Eigen::MatrixXd mapToMatrix(std::vector<point<double,3>>& points,
 
 int main(int argc, char **argv)
 {
-  Image original_image("pumpkins_input.png");
+  Image original_image("cityscape_input.png");
   auto img = original_image;
   auto& mat = img.imgMat;
-  point<double,3> airlight{0.81, 0.81, 0.81};
+  point<double,3> airlight{0.81, 0.81, 0.82};
 
   ImageConverter::shift(airlight, img);
   ImageConverter::convertToSpherical(img);
@@ -126,23 +138,34 @@ int main(int argc, char **argv)
   auto radius_max = mapToMatrix(points, map, img.rows(), img.cols());
 
   auto transmission_est = mat[0];
-  transmission_est = (transmission_est.array() / radius_max.array()).matrix();
+  transmission_est = (transmission_est.array() / radius_max.array()).cwiseMax(0.1).cwiseMin(1).matrix();
+
 
   auto img_copy = original_image;
   ImageConverter::divide(img_copy, point<double,3>{airlight});
   auto& tlb_matrix = img_copy.getMatrix();
-  auto& tlb_min = tlb_matrix[0].array().min(tlb_matrix[1].array().min(tlb_matrix[1].array()));
-  Eigen::MatrixXd tlb = (-1*tlb_min.array()+1).matrix();
+  auto& tlb_min = tlb_matrix[0].array().min(tlb_matrix[1].array().min(tlb_matrix[2].array()));
+  Optimizer::RowMajorMatrixXd tlb =(-1*tlb_min+1).max(transmission_est.array()).matrix();
 
   auto hazeline_std = getLinesStDev(hazelines);
 
   Eigen::MatrixXd radius_std = mapToMatrix(points, map, img_copy.rows(), img_copy.cols());
 
-  // TODO: implement wls optimization
-  double lambda = 0.2;
-//  auto transmission = Optimizer::wlsOptimization(tlb, radius_std, original_image, lambda);
 
-  img.write_png_file((char*)"output.png");
+  double lambda = 0.1;
+  auto start = get_current_time_fenced();
+  std::cout << radius_std.minCoeff() << "\t" << radius_std.maxCoeff() << std::endl;
+  img_copy = original_image;
+  auto transmission = Optimizer::wlsOptimization(tlb, radius_std, img_copy, lambda);
 
+  std::cout << transmission.maxCoeff() << "\t" << transmission.minCoeff() << std::endl;
+  auto dehazed = original_image;
+  transmission = transmission.array().cwiseMax(0.2).cwiseMin(0.9).matrix();
+  ImageConverter::dehaze(dehazed,
+                         transmission,
+                         0.1, 1.0, airlight);
+//  img.write_png_file((char*)"output.png");
+  original_image.write_png_file("original.png");
+  dehazed.write_png_file((char*)"out.png");
   return 0;
 }

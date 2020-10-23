@@ -26,6 +26,23 @@ public:
       }
     }
 
+    static void dehaze(Image& image, Eigen::Matrix<double, -1,-1, Eigen::RowMajor>& t,
+                       double tmin, double leave_haze, const point<double, 3>& airlight)
+    {
+      for (int r = 0; r < image.rows(); ++r) {
+        for (int c = 0; c < image.cols(); ++c) {
+          auto pixel = image.getPixel(r,c);
+          std::array<double,3> coords{};
+          auto trans = t(r,c);
+          for (int i=0;i<3;++i) coords[i] = (pixel.get(i) - (1.0 - trans*leave_haze)*airlight.get(i))
+                                            /std::max(trans, tmin);
+          image.set_pixel(point<double,3>(coords), r,c);
+
+        }
+
+      }
+    }
+
     static void convertToSpherical(Image& image)
     {
       ImageMatrix& mat = image.getMatrix();
@@ -51,7 +68,7 @@ public:
       for (auto it = image.begin(); it != image.end(); ++it)
       {
         auto& pixel = *it;
-        double wb = 0.3*pixel.get(0) + 0.59*pixel.get(1) + 0.11*pixel.get(2);
+        double wb = 0.33*pixel.get(0) + 0.34*pixel.get(1) + 0.33*pixel.get(2);
         image.set_pixel(point<double,3>{wb,wb,wb}, it.curRow, it.curCol);
       }
     }
